@@ -244,6 +244,17 @@ impl ProxyInner {
             warn!("Failed to initialize multi-domain certbot: {err:?}");
         }
 
+        // DEV BYPASS: If no certs loaded, generate a self-signed wildcard cert for base_domain
+        if cert_resolver.list_domains().is_empty() {
+            let base_domain = &config.proxy.base_domain;
+            if !base_domain.is_empty() {
+                info!("DEV BYPASS: no certs found, generating self-signed cert for *.{}", base_domain);
+                if let Err(err) = generate_dev_self_signed_cert(&kv_store, &cert_resolver, base_domain) {
+                    error!("failed to generate dev self-signed cert: {err:?}");
+                }
+            }
+        }
+
         // Create TLS acceptors with CertResolver for SNI-based resolution
         // CertResolver allows atomic certificate updates without recreating acceptors
         info!(
@@ -1323,6 +1334,65 @@ impl RpcCall<Proxy> for RpcHandler {
             state: context.state.clone(),
         })
     }
+}
+
+/// DEV BYPASS: Generate a self-signed wildcard certificate for testing
+/// Mimics original certbot flow: save to KvStore + load into CertResolver
+fn generate_dev_self_signed_cert(
+    kv_store: &Arc<KvStore>,
+    cert_resolver: &Arc<CertResolver>,
+    base_domain: &str,
+) -> Result<()> {
+    use ra_tls::rcgen::{CertificateParams, DnType, KeyPair, SanType};
+
+    let wildcard_domain = format!("*.{}", base_domain);
+    
+    // Generate key pair
+    let key_pair = KeyPair::generate()?;
+    let key_pem = key_pair.serialize_pem();
+
+    // Create certificate params (following cert_store.rs pattern)
+    let mut params = CertificateParams::new(vec![wildcard_domain.clone()])
+        .context("failed to create cert params")?;
+    params.distinguished_name.push(DnType::CommonName, &wildcard_domain);
+    params.subject_alt_names = vec![
+        SanType::DnsName(wildcard_domain.clone().try_into()?),
+        SanType::DnsName(base_domain.to_string().try_into()?),
+    ];
+    // Set expiry to 1 year from now
+    params.not_after = ra_tls::rcgen::date_time_ymd(2030, 1, 1);
+
+    // Generate self-signed certificate
+    let cert = params.self_signed(&key_pair)?;
+    let cert_pem = cert.pem();
+
+    let not_after = (SystemTime::now() + std::time::Duration::from_secs(365 * 24 * 3600))
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    // Create CertData
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let cert_data = crate::kv::CertData {
+        cert_pem,
+        key_pem,
+        not_after,
+        issued_by: kv_store.my_node_id(),
+        issued_at: now_secs,
+    };
+
+    // Save to KvStore (like original certbot does)
+    kv_store.save_cert_data(base_domain, &cert_data)?;
+    info!("DEV BYPASS: self-signed cert saved to KvStore for {}", base_domain);
+
+    // Load into CertResolver (like original certbot does)
+    cert_resolver.update_cert(base_domain, &cert_data)?;
+    info!("DEV BYPASS: self-signed cert loaded into CertResolver for {}", base_domain);
+    
+    Ok(())
 }
 
 #[cfg(test)]

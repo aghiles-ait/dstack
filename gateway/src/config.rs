@@ -117,6 +117,9 @@ pub struct ProxyConfig {
     pub app_address_ns_compat: bool,
     /// Maximum concurrent connections per app. 0 means unlimited.
     pub max_connections_per_app: u64,
+    /// Base domain for app routing (e.g., "apps.example.com")
+    #[serde(default)]
+    pub base_domain: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

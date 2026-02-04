@@ -53,9 +53,9 @@ Edit the generated `build-config.sh` for your environment. The minimal required 
 
 | Variable | Description |
 |----------|-------------|
-| `KMS_DOMAIN` | DNS domain for KMS RPC (e.g., `kms.example.com`) |
-| `GATEWAY_DOMAIN` | DNS domain for Gateway RPC (e.g., `gateway.example.com`) |
-| `GATEWAY_PUBLIC_DOMAIN` | Public base domain for app routing (e.g., `apps.example.com`) |
+| `KMS_DOMAIN` | DNS domain for KMS RPC (e.g., `kms.ovh-tdx-dev.iex.ec`) |
+| `GATEWAY_DOMAIN` | DNS domain for Gateway RPC (e.g., `gateway.ovh-tdx-dev.iex.ec`) |
+| `GATEWAY_PUBLIC_DOMAIN` | Public base domain for app routing (e.g., `apps.ovh-tdx-dev.iex.ec`) |
 
 **TLS Certificates:**
 
@@ -173,7 +173,7 @@ Then start Gateway and VMM:
 
 ```bash
 sudo ./dstack-gateway -c gateway.toml
-./dstack-vmm -c vmm.toml
+sudo ./dstack-vmm -c vmm.toml
 ```
 
 #### 5. Access the Services

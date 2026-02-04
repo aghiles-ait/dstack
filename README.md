@@ -204,6 +204,56 @@ If you use dstack in your research, please cite:
 
 Logo and branding assets: [dstack-logo-kit](./docs/assets/dstack-logo-kit/)
 
+## Modifications from Original dstack
+
+This fork includes development/testing modifications to enable easier testing without Cloudflare DNS integration:
+
+### Gateway Proxy Modifications
+
+1. **Automatic Self-Signed Certificate Generation** (`gateway/src/main_service.rs`):
+   - If no certificates are found in the KvStore, automatically generates a self-signed wildcard certificate
+   - Saves the certificate to KvStore (persistent) and loads it into CertResolver (in-memory)
+   - Mimics the original certbot flow but bypasses ACME challenges and DNS-01 validation
+   - Only activates when `base_domain` is configured and no certificates exist
+
+3. **Base Domain Configuration** (`gateway/src/config.rs`):
+   - Added `base_domain` field to `ProxyConfig` struct
+   - Allows configuration of the base domain for app routing via TOML config
+
+### Use Cases
+
+These modifications enable:
+- **Development/Testing**: Test dstack deployments without requiring Cloudflare DNS or valid ACME certificates
+- **Local Development**: Run dstack with self-signed certificates for internal testing
+- **Custom DNS Providers**: Test deployments with DNS providers not yet supported by certbot (currently only Cloudflare is supported)
+- **Production Testing**: Test production deployment flow without Cloudflare dependency
+
+### Important Notes
+
+- ⚠️ **Security Warning**: Self-signed certificates are for **development/testing only**. Production deployments should use proper ACME certificates.
+- The self-signed certificates will trigger browser warnings (expected behavior)
+- The automatic certificate generation bypasses ACME challenges and DNS-01 validation, which is the main blocker for non-Cloudflare DNS providers
+- Original dstack behavior can be restored by removing the automatic certificate generation in `gateway/src/main_service.rs`
+
+### How It Works
+
+The modification automatically generates a self-signed wildcard certificate when:
+1. No certificates are found in the KvStore
+2. `base_domain` is configured in the Gateway proxy config
+
+The certificate is:
+- Saved to KvStore (persistent, synced across Gateway nodes)
+- Loaded into CertResolver (in-memory, for TLS termination)
+- Treated as a valid wildcard certificate by the routing logic
+
+This allows the Gateway to function normally without requiring Cloudflare DNS or ACME challenges.
+
+### Reverting to Original Behavior
+
+To restore original dstack behavior:
+1. Remove the automatic certificate generation in `gateway/src/main_service.rs` (the `generate_dev_self_signed_cert` function and its call)
+2. Use proper ACME certificates via Certbot with Cloudflare DNS
+
 ## License
 
 Apache 2.0
