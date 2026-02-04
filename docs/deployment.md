@@ -93,6 +93,110 @@ Start in separate terminals:
 
 ---
 
+### Local-Only Dev Deployment (No Domain Required)
+
+If you don't have a DNS domain, you can run the dev deployment locally using self-signed certificates and `.localhost` domains.
+
+#### 1. Configure build-config.sh
+
+Edit `build-config.sh` with local domains:
+
+```bash
+KMS_DOMAIN=kms.localhost
+GATEWAY_DOMAIN=gateway.localhost
+GATEWAY_PUBLIC_DOMAIN=apps.localhost
+CERTBOT_ENABLED=false
+```
+
+Then regenerate configs:
+
+```bash
+../build.sh hostcfg
+```
+
+#### 2. Configure Gateway for Debug Mode
+
+The generated `gateway.toml` needs to be modified to skip attestation (since there's no guest agent in dev mode). Add the debug section with `key_file = ""` to skip debug certificate generation:
+
+```bash
+# Add to gateway.toml under [core] section:
+cat >> gateway.toml << 'EOF'
+
+[core.debug]
+insecure_skip_attestation = true
+key_file = ""
+EOF
+```
+
+> **Note:** Setting `key_file = ""` is required because the default config includes `key_file = "debug_key.json"`, which would cause the Gateway to fail if the file doesn't exist.
+
+#### 3. Create Self-Signed Certificates
+
+Create certificates for Gateway HTTPS proxy:
+
+```bash
+mkdir -p run/certbot/live
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout run/certbot/live/key.pem \
+  -out run/certbot/live/cert.pem \
+  -subj "/CN=*.apps.localhost" \
+  -addext "subjectAltName=DNS:*.apps.localhost,DNS:apps.localhost"
+```
+
+Create certificates for Gateway RPC:
+
+```bash
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout certs/gateway-rpc.key \
+  -out certs/gateway-rpc.cert \
+  -subj "/CN=gateway.localhost"
+
+# Use KMS root CA as Gateway CA (created when KMS starts)
+# This will be created automatically when you first run KMS
+```
+
+#### 4. Start Components
+
+Start KMS first (it generates `certs/root-ca.crt`):
+
+```bash
+./dstack-kms -c kms.toml
+```
+
+Copy the KMS CA cert for Gateway (in another terminal):
+
+```bash
+cp certs/root-ca.crt certs/gateway-ca.cert
+```
+
+Then start Gateway and VMM:
+
+```bash
+sudo ./dstack-gateway -c gateway.toml
+./dstack-vmm -c vmm.toml
+```
+
+#### 5. Access the Services
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| VMM Dashboard | `http://localhost:<VMM_PORT>` | Web UI for deploying CVMs |
+| KMS | `https://localhost:<KMS_PORT>` | Use `-k` with curl (self-signed) |
+| Gateway | `https://localhost:<GATEWAY_PORT>` | Use `-k` with curl (self-signed) |
+
+**Note:** Browsers will show certificate warnings for self-signed certs. Click "Advanced" → "Proceed" to continue.
+
+#### Limitations of Local-Only Deployment
+
+- ❌ No real TLS certificates (browsers show warnings)
+- ❌ No RA-TLS for Gateway RPC (skipped with empty `rpc_domain`)
+- ❌ Apps not accessible via public URLs
+- ✅ Full CVM functionality works
+- ✅ KMS key derivation works
+- ✅ Local development and testing
+
+---
+
 ## Production Deployment
 
 For production, deploy KMS and Gateway as CVMs with hardware-rooted security. Production deployments require:
