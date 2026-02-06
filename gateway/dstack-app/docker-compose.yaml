@@ -4,7 +4,7 @@
 
 services:
   gateway:
-    image: ${GATEWAY_IMAGE}
+    image: aghia/dstack-gateway-local:latest
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - /dstack:/dstack
@@ -15,9 +15,11 @@ services:
       - WG_ENDPOINT=${WG_ENDPOINT}
       - MY_URL=${MY_URL}
       - BOOTNODE_URL=${BOOTNODE_URL}
+      - PROXY_BASE_DOMAIN=${PROXY_BASE_DOMAIN}
       - WG_IP=${WG_IP}
       - WG_RESERVED_NET=${WG_RESERVED_NET}
       - WG_CLIENT_RANGE=${WG_CLIENT_RANGE}
+      - SUBNET_INDEX=${SUBNET_INDEX}
       - NODE_ID=${NODE_ID}
       - RUST_LOG=info,certbot=debug
       - PCCS_URL=${PCCS_URL}

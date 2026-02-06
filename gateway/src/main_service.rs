@@ -245,8 +245,15 @@ impl ProxyInner {
         }
 
         // DEV BYPASS: If no certs loaded, generate a self-signed wildcard cert for base_domain
+        // Check config first, then fall back to PROXY_BASE_DOMAIN env var
         if cert_resolver.list_domains().is_empty() {
-            let base_domain = &config.proxy.base_domain;
+            let base_domain_config = &config.proxy.base_domain;
+            let base_domain_env = std::env::var("PROXY_BASE_DOMAIN").unwrap_or_default();
+            let base_domain = if !base_domain_config.is_empty() {
+                base_domain_config.as_str()
+            } else {
+                base_domain_env.as_str()
+            };
             if !base_domain.is_empty() {
                 info!("DEV BYPASS: no certs found, generating self-signed cert for *.{}", base_domain);
                 if let Err(err) = generate_dev_self_signed_cert(&kv_store, &cert_resolver, base_domain) {

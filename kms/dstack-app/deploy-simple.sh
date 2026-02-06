@@ -70,6 +70,29 @@ for var in "${required_env_vars[@]}"; do
   fi
 done
 
+# Check if SGX Key Provider is running (required for --local-key-provider)
+echo "Checking SGX Key Provider..."
+if ! docker ps 2>/dev/null | grep -q "gramine-sealing-key-provider"; then
+  echo ""
+  echo "Error: SGX Key Provider is not running!"
+  echo ""
+  echo "The KMS deployment requires the SGX Key Provider to be running on port 3443."
+  echo "Start it with:"
+  echo ""
+  echo "  cd ../../key-provider-build/"
+  echo "  docker compose up -d"
+  echo ""
+  echo "Also ensure your vmm.toml has the [key_provider] section configured:"
+  echo ""
+  echo "  [key_provider]"
+  echo "  enabled = true"
+  echo "  address = \"127.0.0.1\""
+  echo "  port = 3443"
+  echo ""
+  exit 1
+fi
+echo "SGX Key Provider is running."
+
 CLI="../../vmm/src/vmm-cli.py --url $VMM_RPC"
 
 COMPOSE_TMP=$(mktemp)

@@ -44,7 +44,8 @@ else
 # The URL of the dstack-vmm RPC service
 # VMM_RPC=unix:../../../build/vmm.sock
 
-# Cloudflare API token for DNS challenge
+# Optional: Cloudflare API token for DNS-01 ACME challenge (Let's Encrypt)
+# If not set, Gateway will use self-signed certificates (if auto-generation is enabled)
 # CF_API_TOKEN=your_cloudflare_api_token
 
 # Service domain
@@ -61,6 +62,9 @@ NODE_ID=1
 
 # The dstack-gateway application ID. Register the app in DstackKms first to get the app ID.
 # GATEWAY_APP_ID=31884c4b7775affe4c99735f6c2aff7d7bc6cfcd
+
+# KMS URL (the KMS must be running and accessible)
+# KMS_URL=https://127.0.0.1:9201
 
 # Whether to use ACME staging (yes/no)
 ACME_STAGING=no
@@ -100,9 +104,10 @@ EOF
 fi
 
 # Define required environment variables
+# Note: CF_API_TOKEN is optional - only needed for Cloudflare DNS-01 ACME challenges
+# Without it, the Gateway will use self-signed certificates (if configured)
 required_env_vars=(
   "VMM_RPC"
-  "CF_API_TOKEN"
   "SRV_DOMAIN"
   "PUBLIC_IP"
   "WG_ADDR"
@@ -169,6 +174,8 @@ APP_LAUNCH_TOKEN=$APP_LAUNCH_TOKEN
 RPC_DOMAIN=$RPC_DOMAIN
 NODE_ID=$NODE_ID
 PROXY_LISTEN_PORT=$PROXY_LISTEN_PORT
+PROXY_BASE_DOMAIN=apps.$SRV_DOMAIN
+SUBNET_INDEX=$SUBNET_INDEX
 EOF
 
 if [ -n "$APP_COMPOSE_FILE" ]; then
@@ -389,6 +396,9 @@ bootstrap_admin() {
     else
       echo "  DNS credentials already exist ($cred_count), skipping"
     fi
+  else
+    echo "  CF_API_TOKEN not set - skipping Cloudflare DNS configuration"
+    echo "  Gateway will use self-signed certificates (if auto-generation is enabled)"
   fi
 
   # Add ZT-Domain if SRV_DOMAIN is provided and domain doesn't exist yet

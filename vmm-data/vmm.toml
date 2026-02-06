@@ -1,0 +1,27 @@
+address = "tcp:0.0.0.0:9080"
+reuse = true
+image_path = "./images"
+run_path = "./run/vm"
+
+[cvm]
+kms_urls = []
+gateway_urls = []
+cid_start = 30000
+cid_pool_size = 1000
+
+[cvm.port_mapping]
+enabled = true
+address = "127.0.0.1"
+range = [
+    { protocol = "tcp", from = 1, to = 20000 },
+    { protocol = "udp", from = 1, to = 20000 },
+]
+
+[host_api]
+address = "vsock:2"
+port = 10000
+
+[key_provider]
+enabled = true
+address = "127.0.0.1"
+port = 3443

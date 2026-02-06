@@ -1,12 +1,87 @@
+# Rust build artifacts
 /target
-/certs
-/build-config.sh
+/.cargo
+
+# Build outputs
 /build
 generated/
+
+# Certificates and keys
+/certs
+*.key
+*.pem
+*.cert
+*.crt
+*.p12
+*.pfx
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.env.local
+*.env.*.local
+
+# VMM data (VM instances, logs, etc.)
+/vmm-data/run/
+/vmm-data/images/
+/vmm-data/*.log
+/vmm-data/*.pid
+/vmm-data/dstack-vmm
+/vmm-data/supervisor
+
+# Docker
+docker-compose.override.yaml
+*.dockerignore.local
+
+# Node.js
 node_modules/
-/.cargo
+package-lock.json
+yarn.lock
+.pnpm-store/
+
+# Python
 .venv
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Temporary files
 /tmp
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
 .claude/settings.local.json
-__pycache__
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# OS files
+.DS_Store
+Thumbs.db
+*.bak
+
+# Planning and notes
 .planning/
+
+# Local configuration overrides
+build-config.sh
+gateway-dev.toml
+*.local.toml
+
+# Auth server logs
+kms/auth-simple/auth-simple.log
+kms/auth-simple/*.log

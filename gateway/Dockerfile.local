@@ -1,0 +1,18 @@
+# Dockerfile for locally built dstack-gateway
+FROM debian:bookworm@sha256:0d8498a0e9e6a60011df39aab78534cfe940785e7c59d19dfae1eb53ea59babe
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    wireguard-tools \
+    iproute2 \
+    jq \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY target/x86_64-unknown-linux-musl/release/dstack-gateway /usr/local/bin/dstack-gateway
+COPY gateway/dstack-app/builder/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+WORKDIR /app
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["dstack-gateway", "-c", "/data/gateway/gateway.toml"]

@@ -81,40 +81,7 @@ vim ./build-config.sh
 ../build.sh dl 0.5.5
 ```
 
-### Run Components
-
-Start in separate terminals:
-
-1. **KMS**: `./dstack-kms -c kms.toml`
-2. **Gateway**: `sudo ./dstack-gateway -c gateway.toml`
-3. **VMM**: `./dstack-vmm -c vmm.toml`
-
-> **Note:** This deployment uses KMS in dev mode without an auth server. For production deployments with proper security, see [Production Deployment](#production-deployment) below.
-
----
-
-### Local-Only Dev Deployment (No Domain Required)
-
-If you don't have a DNS domain, you can run the dev deployment locally using self-signed certificates and `.localhost` domains.
-
-#### 1. Configure build-config.sh
-
-Edit `build-config.sh` with local domains:
-
-```bash
-KMS_DOMAIN=kms.localhost
-GATEWAY_DOMAIN=gateway.localhost
-GATEWAY_PUBLIC_DOMAIN=apps.localhost
-CERTBOT_ENABLED=false
-```
-
-Then regenerate configs:
-
-```bash
-../build.sh hostcfg
-```
-
-#### 2. Configure Gateway for Debug Mode
+### Configure Gateway for Debug Mode
 
 The generated `gateway.toml` needs to be modified to skip attestation (since there's no guest agent in dev mode). Add the debug section with `key_file = ""` to skip debug certificate generation:
 
@@ -130,20 +97,31 @@ EOF
 
 > **Note:** Setting `key_file = ""` is required because the default config includes `key_file = "debug_key.json"`, which would cause the Gateway to fail if the file doesn't exist.
 
-#### 3. Create Self-Signed Certificates
+### Configure Network Bindings for External Access
 
-Create certificates for Gateway HTTPS proxy:
+If you need to access KMS and Gateway from external machines (not just localhost), update the address bindings in the generated config files. The default `build.sh` generates configs with `127.0.0.1`, which only allows local access.
+
+**For KMS (`kms.toml`):**
 
 ```bash
-mkdir -p run/certbot/live
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout run/certbot/live/key.pem \
-  -out run/certbot/live/cert.pem \
-  -subj "/CN=*.apps.localhost" \
-  -addext "subjectAltName=DNS:*.apps.localhost,DNS:apps.localhost"
+# Edit kms.toml and change:
+[rpc]
+address = "0.0.0.0"  # Change from "127.0.0.1" to allow external access
+
+[core.onboard]
+address = "0.0.0.0"  # Change from "127.0.0.1" to allow external access
 ```
 
-Create certificates for Gateway RPC:
+**For Gateway (`gateway.toml`):**
+
+```bash
+# Edit gateway.toml and change:
+address = "0.0.0.0"  # Change from "127.0.0.1" to allow external access
+```
+
+> **Note:** Binding to `0.0.0.0` allows access from any network interface. For production, consider using firewall rules to restrict access. The proxy `listen_addr` is already set to `0.0.0.0` by default.
+
+### Create Self-Signed Gateway RPC certificate
 
 ```bash
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -155,7 +133,9 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 # This will be created automatically when you first run KMS
 ```
 
-#### 4. Start Components
+### Run Components
+
+### Start Components
 
 Start KMS first (it generates `certs/root-ca.crt`):
 
@@ -176,7 +156,9 @@ sudo ./dstack-gateway -c gateway.toml
 sudo ./dstack-vmm -c vmm.toml
 ```
 
-#### 5. Access the Services
+> **Note:** This deployment uses KMS in dev mode without an auth server. For production deployments with proper security, see [Production Deployment](#production-deployment) below.
+
+### Access the Services
 
 | Service | URL | Notes |
 |---------|-----|-------|
@@ -185,15 +167,6 @@ sudo ./dstack-vmm -c vmm.toml
 | Gateway | `https://localhost:<GATEWAY_PORT>` | Use `-k` with curl (self-signed) |
 
 **Note:** Browsers will show certificate warnings for self-signed certs. Click "Advanced" → "Proceed" to continue.
-
-#### Limitations of Local-Only Deployment
-
-- ❌ No real TLS certificates (browsers show warnings)
-- ❌ No RA-TLS for Gateway RPC (skipped with empty `rpc_domain`)
-- ❌ Apps not accessible via public URLs
-- ✅ Full CVM functionality works
-- ✅ KMS key derivation works
-- ✅ Local development and testing
 
 ---
 
@@ -259,6 +232,11 @@ range = [
 [host_api]
 address = "vsock:2"
 port = 10000
+
+[key_provider]
+enabled = true
+address = "127.0.0.1"
+port = 3443
 ```
 
 Download guest images from [meta-dstack releases](https://github.com/Dstack-TEE/meta-dstack/releases) and extract to `./images/`.
@@ -333,6 +311,31 @@ cat dstack-0.5.5/digest.txt
 
 Add `0x` prefix for auth-simple config: `0x0b327bcd...`
 
+#### Start SGX Key Provider
+
+**Important:** The KMS CVM uses a local SGX Key Provider to obtain its sealing keys. This service must be running before deploying KMS.
+
+The Key Provider is an SGX enclave that:
+- Derives sealing keys from SGX hardware measurements
+- Provides keys to CVMs after validating their TDX quotes
+- Runs on port 3443
+
+**Start the Key Provider:**
+
+```bash
+cd dstack/key-provider-build/
+docker compose up -d
+```
+
+**Verify it's running:**
+
+```bash
+docker ps | grep key-provider
+# Should show: gramine-sealing-key-provider
+```
+
+> **Note:** The Key Provider requires SGX hardware (`/dev/sgx_enclave`, `/dev/sgx_provision`). Verify SGX is available with `ls /dev/sgx*`.
+
 #### Deploy KMS CVM
 
 Choose the deployment script based on your auth server:
@@ -349,11 +352,13 @@ Edit `.env.simple`:
 
 ```bash
 VMM_RPC=http://127.0.0.1:9080
-AUTH_WEBHOOK_URL=http://your-auth-server:3001
+AUTH_WEBHOOK_URL=http://10.0.2.2:3001 # Auth server address (address of the qemu gateway since we use user mode (slirp) connection)
 KMS_RPC_ADDR=0.0.0.0:9201
 GUEST_AGENT_ADDR=127.0.0.1:9205
-OS_IMAGE=dstack-0.5.5
-IMAGE_DOWNLOAD_URL=https://github.com/Dstack-TEE/meta-dstack/releases/download/v0.5.5/dstack-0.5.5.tar.gz
+OS_IMAGE=dstack-dev-0.5.5
+IMAGE_DOWNLOAD_URL=https://github.com/Dstack-TEE/meta-dstack/releases/download/v0.5.5/dstack-dev-0.5.5.tar.gz
+VERIFY_IMAGE=false
+KMS_IMAGE=dstacktee/dstack-kms@sha256:11ac59f524a22462ccd2152219b0bec48a28ceb734e32500152d4abefab7a62a
 ```
 
 Then run:
@@ -413,15 +418,19 @@ Edit `.env` with required variables:
 # VMM connection (use TCP if VMM is on same host, or remote URL)
 VMM_RPC=http://127.0.0.1:9080
 
-# Cloudflare (for DNS-01 ACME challenge)
-CF_API_TOKEN=your_cloudflare_api_token
+# Optional: Cloudflare API token for Let's Encrypt DNS-01 challenge
+# If not set, Gateway will use self-signed certificates
+# CF_API_TOKEN=your_cloudflare_api_token
 
 # Domain configuration
-SRV_DOMAIN=example.com
+SRV_DOMAIN=ovh-tdx-dev.iex.ec
 PUBLIC_IP=$(curl -s ifconfig.me)
 
 # Gateway app ID (from registration above)
 GATEWAY_APP_ID=32467b43BFa67273FC7dDda0999Ee9A12F2AaA08
+
+# KMS URL (the KMS must be running and accessible)
+KMS_URL=https://127.0.0.1:9201
 
 # Gateway URLs
 MY_URL=https://gateway.example.com:9202

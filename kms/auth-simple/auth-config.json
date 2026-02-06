@@ -1,0 +1,11 @@
+{
+    "osImages": ["0xe18f5407b33e3c9ce7db827f2d351c98cc7a3fe9814ae6607280162e88bec010"],
+    "kms": { "allowAnyDevice": true },
+    "gatewayAppId": "0x82c432d9f1e4033298cf00958147a483a895b386",
+    "apps": {
+      "0x82c432d9f1e4033298cf00958147a483a895b386": {
+        "composeHashes": ["0x9bcf07ebf55a97aa02ef447f3042433d1b8e5a04973f919f71dc26dda211bfc2"],
+        "allowAnyDevice": true
+      }
+    }
+  }
