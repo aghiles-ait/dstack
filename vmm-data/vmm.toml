@@ -4,8 +4,8 @@ image_path = "./images"
 run_path = "./run/vm"
 
 [cvm]
-kms_urls = []
-gateway_urls = []
+kms_urls = ["https://kms.ovh-tdx-dev.iex.ec:9201"]
+gateway_urls = ["https://gateway.ovh-tdx-dev.iex.ec:9202"]
 cid_start = 30000
 cid_pool_size = 1000
 

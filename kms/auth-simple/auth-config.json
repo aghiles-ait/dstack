@@ -6,6 +6,14 @@
       "0x82c432d9f1e4033298cf00958147a483a895b386": {
         "composeHashes": ["0x9bcf07ebf55a97aa02ef447f3042433d1b8e5a04973f919f71dc26dda211bfc2"],
         "allowAnyDevice": true
+      },
+      "0xbef6e480d2a425e8091689ce7c19fb5eddbfee5c": {
+        "composeHashes": ["0xbef6e480d2a425e8091689ce7c19fb5eddbfee5cacd72a3a08ed7abcc8a0a298"],
+        "allowAnyDevice": true
+      },
+      "0xb97a14b540e428ec269ef838df6d8b90c83f8c71": {
+        "composeHashes": ["0xb97a14b540e428ec269ef838df6d8b90c83f8c71eabbc6756919ecf5ce738437"],
+        "allowAnyDevice": true
       }
     }
   }

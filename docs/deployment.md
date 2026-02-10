@@ -123,11 +123,16 @@ address = "0.0.0.0"  # Change from "127.0.0.1" to allow external access
 
 ### Create Self-Signed Gateway RPC certificate
 
+The certificate CN must match the `rpc_domain` configured in `gateway.toml`:
+
 ```bash
+# Get the rpc_domain from gateway.toml (e.g., gateway.ovh-tdx-dev.iex.ec)
+RPC_DOMAIN=$(grep "^rpc_domain" gateway.toml | cut -d'"' -f2)
+
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -keyout certs/gateway-rpc.key \
   -out certs/gateway-rpc.cert \
-  -subj "/CN=gateway.localhost"
+  -subj "/CN=${RPC_DOMAIN}"
 
 # Use KMS root CA as Gateway CA (created when KMS starts)
 # This will be created automatically when you first run KMS
@@ -167,6 +172,55 @@ sudo ./dstack-vmm -c vmm.toml
 | Gateway | `https://localhost:<GATEWAY_PORT>` | Use `-k` with curl (self-signed) |
 
 **Note:** Browsers will show certificate warnings for self-signed certs. Click "Advanced" → "Proceed" to continue.
+
+### Accessing Deployed Applications
+
+Once your application is deployed in a CVM, you can access it through the dstack Gateway using the following URL format:
+
+```
+https://<app_id>[-<port>][<suffix>].<base_domain>:<gateway_port>
+```
+
+**URL Format Components:**
+
+- **`<app_id>`**: The application identifier (hexadecimal hash, e.g., `ebe1e087afff39e018e17a0a42f0be8622390782`)
+- **`<port>`**: Optional port number (defaults to 80 for HTTP, 443 for HTTPS)
+- **`<suffix>`**: Optional suffix flags:
+  - `s`: Enable TLS passthrough (proxy passes encrypted traffic directly to backend)
+  - `g`: Enable HTTP/2 (gRPC) support
+- **`<base_domain>`**: The base domain configured for the Gateway (e.g., `apps.ovh-tdx-dev.iex.ec`)
+- **`<gateway_port>`**: The **TLS proxy port** where the Gateway listens for application traffic (configured in `gateway.toml` under `[core.proxy] listen_port`, e.g., `13644` in dev mode, `443` in production). This is different from the Gateway RPC port (used for inter-service communication) and the WireGuard port (used for VPN tunnels).
+
+**Examples:**
+
+```bash
+# Basic HTTP access (port 80)
+curl -k https://ebe1e087afff39e018e17a0a42f0be8622390782.apps.ovh-tdx-dev.iex.ec:13644/
+
+# Custom port (e.g., 8080)
+curl -k https://ebe1e087afff39e018e17a0a42f0be8622390782-8080.apps.ovh-tdx-dev.iex.ec:13644/
+
+# TLS passthrough
+curl -k https://ebe1e087afff39e018e17a0a42f0be8622390782-443s.apps.ovh-tdx-dev.iex.ec:13644/
+
+# HTTP/2 (gRPC)
+curl -k https://ebe1e087afff39e018e17a0a42f0be8622390782-8080g.apps.ovh-tdx-dev.iex.ec:13644/
+```
+
+**Finding Your App ID:**
+
+The app ID is generated when you deploy your application. You can find it:
+- In the VMM dashboard after deployment
+- In the Gateway logs when the app registers: `grep RegisterCvm gateway.log`
+- Via the VMM API: `curl http://localhost:<vmm_port>/vm`
+
+**Notes:**
+
+- Use `-k` flag with curl to skip certificate verification (required for self-signed certificates in dev mode)
+- The Gateway automatically routes traffic to the correct CVM instance based on the app ID
+- Multiple instances of the same app are load-balanced automatically
+
+For more details, see the [Usage Guide](./usage.md).
 
 ---
 
@@ -289,7 +343,7 @@ Run auth-simple:
 ```bash
 cd kms/auth-simple
 bun install
-PORT=3001 AUTH_CONFIG_PATH=/path/to/auth-config.json bun run start
+PORT=3001 AUTH_CONFIG_PATH=/home/aghiles/dstack/kms/auth-simple/auth-config.json bun run start
 ```
 
 For adding Gateway, apps, and other config fields, see [auth-simple Operations Guide](./auth-simple-operations.md).
@@ -357,7 +411,7 @@ KMS_RPC_ADDR=0.0.0.0:9201
 GUEST_AGENT_ADDR=127.0.0.1:9205
 OS_IMAGE=dstack-dev-0.5.5
 IMAGE_DOWNLOAD_URL=https://github.com/Dstack-TEE/meta-dstack/releases/download/v0.5.5/dstack-dev-0.5.5.tar.gz
-VERIFY_IMAGE=false
+VERIFY_IMAGE=false # Bug to diagnose
 KMS_IMAGE=dstacktee/dstack-kms@sha256:11ac59f524a22462ccd2152219b0bec48a28ceb734e32500152d4abefab7a62a
 ```
 
@@ -478,8 +532,8 @@ After Gateway is running, update `vmm.toml` with KMS and Gateway URLs:
 
 ```toml
 [cvm]
-kms_urls = ["https://kms.example.com:9201"]
-gateway_urls = ["https://gateway.example.com:9202"]
+kms_urls = ["https://kms.ovh-tdx-dev.iex.ec:9201"]
+gateway_urls = ["https://gateway.ovh-tdx-dev.iex.ec:9202"]
 ```
 
 Restart dstack-vmm to apply changes.

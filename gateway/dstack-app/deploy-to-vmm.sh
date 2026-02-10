@@ -159,6 +159,9 @@ else
   PROXY_LISTEN_PORT=443
 fi
 
+# Define PROXY_BASE_DOMAIN
+PROXY_BASE_DOMAIN=apps.$SRV_DOMAIN
+
 echo "Docker compose file:"
 cat "$COMPOSE_TMP"
 
@@ -174,7 +177,7 @@ APP_LAUNCH_TOKEN=$APP_LAUNCH_TOKEN
 RPC_DOMAIN=$RPC_DOMAIN
 NODE_ID=$NODE_ID
 PROXY_LISTEN_PORT=$PROXY_LISTEN_PORT
-PROXY_BASE_DOMAIN=apps.$SRV_DOMAIN
+PROXY_BASE_DOMAIN=$PROXY_BASE_DOMAIN
 SUBNET_INDEX=$SUBNET_INDEX
 EOF
 
@@ -241,6 +244,7 @@ echo "GATEWAY_ADMIN_RPC_ADDR: $GATEWAY_ADMIN_RPC_ADDR"
 echo "GATEWAY_SERVING_PORT: $GATEWAY_SERVING_PORT (x$GATEWAY_SERVING_NUM_PORTS)"
 echo "GUEST_AGENT_ADDR: $GUEST_AGENT_ADDR"
 echo "RPC_DOMAIN: $RPC_DOMAIN"
+echo "PROXY_BASE_DOMAIN: $PROXY_BASE_DOMAIN"
 if [ -t 0 ]; then
   # Only ask for confirmation if running in an interactive terminal
   read -p "Continue? [y/N] " -n 1 -r
@@ -401,19 +405,19 @@ bootstrap_admin() {
     echo "  Gateway will use self-signed certificates (if auto-generation is enabled)"
   fi
 
-  # Add ZT-Domain if SRV_DOMAIN is provided and domain doesn't exist yet
-  if [ -n "$SRV_DOMAIN" ]; then
+  # Add ZT-Domain if PROXY_BASE_DOMAIN is provided and domain doesn't exist yet
+  if [ -n "$PROXY_BASE_DOMAIN" ]; then
     existing=$(curl -sf "http://$admin_addr/prpc/ListZtDomains" 2>/dev/null)
-    has_domain=$(echo "$existing" | jq -r '.domains[]? | select(.domain=="'"$SRV_DOMAIN"'") | .domain' 2>/dev/null)
+    has_domain=$(echo "$existing" | jq -r '.domains[]? | select(.domain=="'"$PROXY_BASE_DOMAIN"'") | .domain' 2>/dev/null)
 
     if [ -z "$has_domain" ]; then
-      echo "Adding ZT-Domain: $SRV_DOMAIN..."
+      echo "Adding ZT-Domain: $PROXY_BASE_DOMAIN..."
       curl -sf -X POST "http://$admin_addr/prpc/AddZtDomain" \
         -H "Content-Type: application/json" \
-        -d '{"domain":"'"$SRV_DOMAIN"'","port":443,"priority":100}' >/dev/null \
+        -d '{"domain":"'"$PROXY_BASE_DOMAIN"'","port":443,"priority":100}' >/dev/null \
         && echo "  ZT-Domain added" || echo "  WARN: failed to add ZT-Domain"
     else
-      echo "  ZT-Domain $SRV_DOMAIN already exists, skipping"
+      echo "  ZT-Domain $PROXY_BASE_DOMAIN already exists, skipping"
     fi
   fi
 

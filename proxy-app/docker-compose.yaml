@@ -1,0 +1,11 @@
+services:
+  proxy:
+    image: aghia/proxy-app:latest
+    environment:
+      - TARGET_APP_ID=bef6e480d2a425e8091689ce7c19fb5eddbfee5c
+      - TARGET_PORT=8080
+      - GATEWAY_DOMAIN=apps.ovh-tdx-dev.iex.ec
+      - GATEWAY_PORT=9204
+    ports:
+      - "8080:80"
+    restart: always
