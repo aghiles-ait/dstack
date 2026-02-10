@@ -2,6 +2,7 @@ address = "tcp:0.0.0.0:9080"
 reuse = true
 image_path = "./images"
 run_path = "./run/vm"
+kms_url = "https://kms.ovh-tdx-dev.iex.ec:9201"
 
 [cvm]
 kms_urls = ["https://kms.ovh-tdx-dev.iex.ec:9201"]
