@@ -438,7 +438,7 @@ Wait for `[  OK  ] Finished App Compose Service.`
 Open `http://127.0.0.1:9201/` in your browser.
 
 1. Click **Bootstrap**
-2. Enter the domain for your KMS (e.g., `kms.example.com`)
+2. Enter the domain for your KMS (e.g., `kms.ovh-tdx-dev.iex.ec`)
 3. Click **Finish setup**
 
 ![KMS Bootstrap](assets/kms-bootstrap.png)
