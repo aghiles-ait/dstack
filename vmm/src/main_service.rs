@@ -13,7 +13,8 @@ use dstack_vmm_rpc::{
     AppId, ComposeHash as RpcComposeHash, DhcpLeaseRequest, GatewaySettings, GetInfoResponse,
     GetMetaResponse, Id, ImageInfo as RpcImageInfo, ImageListResponse, KmsSettings,
     ListGpusResponse, PublicKeyResponse, ReloadVmsResponse, ResizeVmRequest, ResourcesSettings,
-    StatusRequest, StatusResponse, UpdateVmRequest, VersionResponse, VmConfiguration,
+    StatusRequest, StatusResponse, SvListResponse, SvProcessInfo, UpdateVmRequest, VersionResponse,
+    VmConfiguration,
 };
 use fs_err as fs;
 use ra_rpc::{CallContext, RpcCall};
@@ -201,7 +202,7 @@ fn networking_from_proto(proto: &rpc::NetworkingConfig) -> Option<crate::config:
     use crate::config::NetworkingMode;
     let mode = match proto.mode.as_str() {
         "bridge" => NetworkingMode::Bridge,
-        "passt" => NetworkingMode::Passt,
+
         "user" => NetworkingMode::User,
         "custom" => NetworkingMode::Custom,
         "" => return None, // not set, use global default
@@ -218,16 +219,6 @@ fn networking_from_proto(proto: &rpc::NetworkingConfig) -> Option<crate::config:
         net: String::new(),
         dhcp_start: String::new(),
         restrict: false,
-        passt_exec: String::new(),
-        interface: String::new(),
-        address: String::new(),
-        netmask: String::new(),
-        gateway: String::new(),
-        dns: vec![],
-        map_host_loopback: String::new(),
-        map_guest_addr: String::new(),
-        no_map_gw: false,
-        ipv4_only: false,
         netdev: String::new(),
         forward_service_enabled: false,
     })
@@ -585,6 +576,41 @@ impl VmmRpc for RpcHandler {
 
     async fn report_dhcp_lease(self, request: DhcpLeaseRequest) -> Result<()> {
         self.app.report_dhcp_lease(&request.mac, &request.ip).await;
+        Ok(())
+    }
+
+    async fn sv_list(self) -> Result<SvListResponse> {
+        use supervisor_client::supervisor::ProcessStatus;
+        let list = self.app.supervisor.list().await?;
+        let processes = list
+            .into_iter()
+            .map(|p| {
+                let status = match &p.state.status {
+                    ProcessStatus::Running => "running".into(),
+                    ProcessStatus::Stopped => "stopped".into(),
+                    ProcessStatus::Exited(code) => format!("exited({code})"),
+                    ProcessStatus::Error(msg) => format!("error({msg})"),
+                };
+                SvProcessInfo {
+                    id: p.config.id,
+                    name: p.config.name,
+                    status,
+                    pid: p.state.pid,
+                    command: p.config.command,
+                    note: p.config.note,
+                }
+            })
+            .collect();
+        Ok(SvListResponse { processes })
+    }
+
+    async fn sv_stop(self, request: Id) -> Result<()> {
+        self.app.supervisor.stop(&request.id).await?;
+        Ok(())
+    }
+
+    async fn sv_remove(self, request: Id) -> Result<()> {
+        self.app.supervisor.remove(&request.id).await?;
         Ok(())
     }
 }
