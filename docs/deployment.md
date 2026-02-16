@@ -409,10 +409,10 @@ VMM_RPC=http://127.0.0.1:9080
 AUTH_WEBHOOK_URL=http://10.0.2.2:3001 # Auth server address (address of the qemu gateway since we use user mode (slirp) connection)
 KMS_RPC_ADDR=0.0.0.0:9201
 GUEST_AGENT_ADDR=127.0.0.1:9205
-OS_IMAGE=dstack-dev-0.5.5
-IMAGE_DOWNLOAD_URL=https://github.com/Dstack-TEE/meta-dstack/releases/download/v0.5.5/dstack-dev-0.5.5.tar.gz
-VERIFY_IMAGE=false # Bug to diagnose
-KMS_IMAGE=dstacktee/dstack-kms@sha256:11ac59f524a22462ccd2152219b0bec48a28ceb734e32500152d4abefab7a62a
+OS_IMAGE=dstack-0.5.6
+IMAGE_DOWNLOAD_URL=https://download.dstack.org/os-images/mr_{OS_IMAGE_HASH}.tar.gz
+VERIFY_IMAGE=true
+KMS_IMAGE=dstacktee/dstack-kms@sha256:6f8ae87eb685679bf77844b38fdda867dd591a6470543574b92ab9b71bf4c849
 ```
 
 Then run:

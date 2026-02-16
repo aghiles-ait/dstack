@@ -6,6 +6,18 @@
       "0x82c432d9f1e4033298cf00958147a483a895b386": {
         "composeHashes": ["0x9bcf07ebf55a97aa02ef447f3042433d1b8e5a04973f919f71dc26dda211bfc2"],
         "allowAnyDevice": true
+      },
+      "0x91533cff8bb2071b51bec13ed21755b3fbb21902": {
+        "composeHashes": ["0x91533cff8bb2071b51bec13ed21755b3fbb2190230d2d1319c5179c4d04f0204"],
+        "allowAnyDevice": true
+      },
+      "0x31c5c5ea6ea4ebe4ac1d16f344ddc88504df41f7": {
+        "composeHashes": ["0x31c5c5ea6ea4ebe4ac1d16f344ddc88504df41f7a0bab1079da3b360ff5e8b00"],
+        "allowAnyDevice": true
+      },
+      "0x9378eb5ac10b78774d4ac77b246bb9b5bd0be967": {
+        "composeHashes": ["0x9378eb5ac10b78774d4ac77b246bb9b5bd0be9677800a6aab492dc81c29d7974"],
+        "allowAnyDevice": true
       }
     }
   }
