@@ -373,10 +373,224 @@ Error responses include a JSON body:
 }
 ```
 
+## Guest Agent API (External — Port 8090/9205)
+
+The Guest Agent runs inside every CVM (including the KMS CVM). It exposes an external HTTP server on port **8090** inside the CVM, typically mapped to port **9205** on the host. It provides the `Worker` RPC service and HTTP routes.
+
+> **Note:** The Guest Agent also has an internal Unix socket API (`dstack.sock`) used by containers inside the CVM — those endpoints are not documented here as they are not accessible from the host.
+
+### Base URL
+
+```
+http://<host-ip>:9205
+```
+
+---
+
+### 1. Dashboard (Web UI)
+
+Returns an HTML dashboard showing app info, containers, and system info.
+
+**Endpoint:** `GET /`
+
+**Example:**
+
+```bash
+curl -s http://localhost:9205/
+```
+
+**Response:** HTML page with app ID, instance ID, device ID, key provider info, running containers, and system metrics.
+
+> **Note:** the level of detail shown depends on the `public_logs`, `public_sysinfo`, and `public_tcbinfo` flags in the app compose configuration.
+
+---
+
+### 2. Info
+
+Returns application metadata: app ID, instance ID, device ID, certificates, TDX measurements, and VM configuration.
+
+**Endpoint:** `POST /prpc/Info`
+
+**Request:** empty `{}`
+
+**Example:**
+
+```bash
+curl -s http://localhost:9205/prpc/Info -d '{}' | jq
+```
+
+**Response:**
+
+```json
+{
+  "app_id": "<hex-encoded-app-id>",
+  "instance_id": "<hex-encoded-instance-id>",
+  "app_cert": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n",
+  "tcb_info": "<json-string-with-mrtd-rtmrs-event-log>",
+  "app_name": "kms",
+  "device_id": "<hex-encoded-device-id>",
+  "mr_aggregated": "<hex-encoded-mr-aggregated>",
+  "os_image_hash": "<hex-encoded-os-image-hash>",
+  "key_provider_info": "<key-provider-info>",
+  "compose_hash": "<hex-encoded-compose-hash>",
+  "vm_config": "<json-string-vm-config>",
+  "cloud_vendor": "",
+  "cloud_product": ""
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `app_id` | bytes (hex) | Application ID (derived from the key provider and compose hash) |
+| `instance_id` | bytes (hex) | Unique instance ID for this CVM |
+| `app_cert` | string | PEM-encoded app certificate (RA-TLS) |
+| `tcb_info` | string (JSON) | TDX measurements (MRTD, RTMRs), event log, compose manifest — hidden if `public_tcbinfo = false` |
+| `app_name` | string | Name of the deployed app |
+| `device_id` | bytes (hex) | TDX device identifier |
+| `mr_aggregated` | bytes (hex) | Aggregated measurement register |
+| `os_image_hash` | bytes (hex) | SHA256 of the OS image's `sha256sum.txt` |
+| `key_provider_info` | string | Key provider ID (KMS CA public key) |
+| `compose_hash` | bytes (hex) | SHA256 of the app compose manifest |
+| `vm_config` | string (JSON) | VM configuration (vCPUs, memory, image, etc.) |
+| `cloud_vendor` | string | Cloud provider sys_vendor (e.g. "Google") |
+| `cloud_product` | string | Cloud provider product_name (e.g. "Google Compute Engine") |
+
+---
+
+### 3. Version
+
+Returns the Guest Agent version and git revision.
+
+**Endpoint:** `POST /prpc/Version`
+
+**Request:** empty `{}`
+
+**Example:**
+
+```bash
+curl -s http://localhost:9205/prpc/Version -d '{}' | jq
+```
+
+**Response:**
+
+```json
+{
+  "version": "0.5.6",
+  "rev": "abc1234"
+}
+```
+
+---
+
+### 4. GetAttestationForAppKey
+
+Generates a TDX quote binding the app's derived signing key (ed25519 or secp256k1) to a TDX attestation. The public key is encoded in the quote's report data using the `dip1::` format.
+
+**Endpoint:** `POST /prpc/GetAttestationForAppKey`
+
+**Request Parameters:**
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `algorithm` | string | Key algorithm: `"ed25519"`, `"secp256k1"`, or `"secp256k1_prehashed"` | `"ed25519"` |
+
+**Example:**
+
+```bash
+curl -s http://localhost:9205/prpc/GetAttestationForAppKey \
+  -H 'Content-Type: application/json' \
+  -d '{"algorithm": "ed25519"}' | jq
+```
+
+**Response:**
+
+```json
+{
+  "quote": "<hex-encoded-tdx-quote>",
+  "event_log": "<json-encoded-event-log>",
+  "report_data": "<hex-encoded-64-bytes-report-data>",
+  "vm_config": "<json-string-vm-config>"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `quote` | bytes (hex) | TDX quote with the derived public key in report data |
+| `event_log` | string (JSON) | TDX event log (RTMR[0-2] payloads stripped, digests only) |
+| `report_data` | bytes (hex) | 64 bytes of report data containing `dip1::<algo>-pk:<base64url-pubkey>` |
+| `vm_config` | string (JSON) | VM configuration |
+
+**Use case:** allows a verifier to link a derived signing key to a specific CVM's attestation. The report data format is `dip1::ed25519-pk:<base64url>` or `dip1::secp256k1c-pk:<base64url>`.
+
+---
+
+### 5. Metrics
+
+Returns system metrics in Prometheus format. Only available if `public_sysinfo = true` in the app compose.
+
+**Endpoint:** `GET /metrics`
+
+**Example:**
+
+```bash
+curl -s http://localhost:9205/metrics
+```
+
+**Response:** Prometheus-formatted text metrics (CPU, memory, disk, etc.)
+
+---
+
+### 6. Container Logs
+
+Returns container logs from the CVM's Docker engine. Only available if `public_logs = true` in the app compose.
+
+**Endpoint:** `GET /logs/<container_name>`
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `since` | string | `0` | Start time: seconds (`"120"`), or with unit (`"5m"`, `"2h"`, `"1d"`) |
+| `until` | string | `0` | End time (same format as `since`) |
+| `follow` | bool | `false` | Stream logs in real time |
+| `text` | bool | `false` | Return logs as UTF-8 text (otherwise base64) |
+| `bare` | bool | `false` | Return raw log lines without JSON wrapping |
+| `timestamps` | bool | `false` | Include Docker timestamps |
+| `tail` | string | `"1000"` | Number of lines to return from the end |
+| `ansi` | bool | `false` | Preserve ANSI escape codes (only with `text=true`) |
+
+**Example:**
+
+```bash
+# Get last 100 lines of kms container logs as text
+curl -s "http://localhost:9205/logs/dsatck-kms-1?text=true&bare=true&tail=100"
+
+# Stream logs in real time
+curl -s "http://localhost:9205/logs/dsatck-kms-1?text=true&bare=true&follow=true"
+
+# Get logs from the last 30 minutes
+curl -s "http://localhost:9205/logs/dsatck-kms-1?text=true&bare=true&since=30m"
+```
+
+**Response (default JSON mode):** newline-delimited JSON objects:
+
+```json
+{"channel":"stdout","message":"<base64-encoded-log-line>"}
+{"channel":"stderr","message":"<base64-encoded-log-line>"}
+```
+
+**Response (bare text mode):** raw log lines as plain text.
+
+---
+
 ## Ports Summary
 
 | Service | CVM Port | Typical Host Port | Protocol |
 |---------|----------|-------------------|----------|
 | KMS RPC (main + onboard) | 8000 | 9201 | HTTPS (self-signed) |
-| auth-simple | 8001 | configurable | HTTP (internal) |
+| auth-api (on-chain) | 8001 | configurable | HTTP (internal) |
 | Guest Agent | 8090 | 9205 | HTTP |
