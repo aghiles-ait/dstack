@@ -1,0 +1,9 @@
+version: '3'
+services:    
+  nginx:
+    image: nginx:latest
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    ports:
+      - "8080:80"
+    restart: always

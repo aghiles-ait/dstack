@@ -65,6 +65,7 @@ version: '3'
 services:
   nginx:
     image: nginx:latest
+    container_name: nginx
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
     ports:
