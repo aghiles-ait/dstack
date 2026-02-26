@@ -567,13 +567,13 @@ Returns container logs from the CVM's Docker engine. Only available if `public_l
 
 ```bash
 # Get last 100 lines of kms container logs as text
-curl -s "http://localhost:9205/logs/dsatck-kms-1?text=true&bare=true&tail=100"
+curl -s "http://localhost:9205/logs/dstack-kms-1?text=true&bare=true&tail=100"
 
 # Stream logs in real time
-curl -s "http://localhost:9205/logs/dsatck-kms-1?text=true&bare=true&follow=true"
+curl -s "http://localhost:9205/logs/dstack-kms-1?text=true&bare=true&follow=true"
 
 # Get logs from the last 30 minutes
-curl -s "http://localhost:9205/logs/dsatck-kms-1?text=true&bare=true&since=30m"
+curl -s "http://localhost:9205/logs/dstack-kms-1?text=true&bare=true&since=30m"
 ```
 
 **Response (default JSON mode):** newline-delimited JSON objects:
