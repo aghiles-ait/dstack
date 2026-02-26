@@ -1021,7 +1021,7 @@ open http://127.0.0.1:9206/
 curl -s http://127.0.0.1:9206/metrics
 
 # Stream container logs (text format, last 100 lines)
-curl -s 'http://127.0.0.1:9206/logs/gateway?text=true&bare=true&tail=100'
+curl -s 'http://127.0.0.1:9206/logs/dstack-gateway-1?text=true&bare=true&tail=100'
 ```
 
 > **Note**: The Guest Agent also serves the VMM's `/guest` proxy path (via vsock), which exposes additional endpoints like `SysInfo`, `NetworkInfo`, `ListContainers`, and `Shutdown`. These extra endpoints are **not** available on port 9206 — only through the VMM proxy at `http://127.0.0.1:9080/guest/...`.
